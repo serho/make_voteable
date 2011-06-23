@@ -21,8 +21,10 @@ also add +up_votes+ and +down_votes+ columns to the voter (e.g. User) and voteab
 
   add_column :users, :up_votes, :integer, :null => false, :default => 0
   add_column :users, :down_votes, :integer, :null => false, :default => 0
+  add_column :users, :abstain_votes, :integer, :null => false, :default => 0
   add_column :questions, :up_votes, :integer, :null => false, :default => 0
   add_column :questions, :down_votes, :integer, :null => false, :default => 0
+  add_column :questions, :abstain_votes, :integer, :null => false, :default => 0
 
 migrate the database
 

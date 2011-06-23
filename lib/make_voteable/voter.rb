@@ -21,15 +21,17 @@ module MakeVoteable
       voting = fetch_voting(voteable)
 
       if voting
-        if voting.up_vote
-          raise Exceptions::AlreadyVotedError.new(true)
+        if voting.up_vote?
+          raise Exceptions::AlreadyVotedError.new('up')
         else
-          voting.up_vote = true
+          voting.what_vote = 1
           voteable.down_votes -= 1
+          voteable.abstain_votes -= 1
           self.down_votes -= 1 if has_attribute?(:down_votes)
+          self.abstain_votes -= 1 if has_attribute?(:abstain_votes)
         end
       else
-        voting = Voting.create(:voteable => voteable, :voter => self, :up_vote => true)
+        voting = Voting.create(:voteable => voteable, :voter => self, :what_vote => 1)
       end
 
       voteable.up_votes += 1
@@ -65,15 +67,17 @@ module MakeVoteable
       voting = fetch_voting(voteable)
 
       if voting
-        unless voting.up_vote
-          raise Exceptions::AlreadyVotedError.new(false)
+        if voting.down_vote?
+          raise Exceptions::AlreadyVotedError.new('down')
         else
-          voting.up_vote = false
+          voting.what_vote = 0
           voteable.up_votes -= 1
+          voteable.abstain_votes -= 1
           self.up_votes -= 1 if has_attribute?(:up_votes)
+          self.abstain_votes -= 1 if has_attribute?(:abstain_votes)
         end
       else
-        voting = Voting.create(:voteable => voteable, :voter => self, :up_vote => false)
+        voting = Voting.create(:voteable => voteable, :voter => self, :what_vote => 0)
       end
 
       voteable.down_votes += 1
@@ -100,6 +104,47 @@ module MakeVoteable
       success
     end
 
+    def abstain_vote(voteable)
+      check_voteable(voteable)
+      
+      voting = fetch_voting(voteable)
+
+      if voting
+        if voting.abstain_vote?
+          raise Exceptions::AlreadyVotedError.new('down')
+        else
+          voting.what_vote = 2
+          voteable.up_votes -= 1
+          voteable.down_votes -= 1
+          self.up_votes -= 1 if has_attribute?(:up_votes)
+          self.down_votes -= 1 if has_attribute?(:down_votes)
+        end
+      else
+        voting = Voting.create(:voteable => voteable, :voter => self, :what_vote => 2)
+      end
+      
+      voteable.abstain_votes += 1
+      self.abstain_votes += 1 if has_attribute?(:down_votes)
+      
+      Voting.transaction do
+        save
+        voteable.save
+        voting.save
+      end
+      
+      true
+    end
+    
+    def abstain_vote!(voteable)
+      begin
+        abstain_vote(voteable)
+        success = true
+      rescue Exceptions::AlreadyVotedError
+        success = false
+      end
+      success
+    end
+
     # Clears an already done vote on a +voteable+.
     # Raises a NotVotedError if the voter didn't voted for the voteable.
     def unvote(voteable)
@@ -109,12 +154,15 @@ module MakeVoteable
 
       raise Exceptions::NotVotedError unless voting
 
-      if voting.up_vote
+      if voting.up_vote?
         voteable.up_votes -= 1
         self.up_votes -= 1 if has_attribute?(:up_votes)
-      else
+      elsif voting.down_vote?
         voteable.down_votes -= 1
         self.down_votes -= 1 if has_attribute?(:down_votes)
+      elsif voting.abstain_vote?
+        voteable.abstain_votes -= 1
+        self.abstain_votes -= 1 if has_attribute?(:abstain_votes)
       end
 
       Voting.transaction do
@@ -149,7 +197,7 @@ module MakeVoteable
     def up_voted?(voteable)
       check_voteable(voteable)
       voting = fetch_voting(voteable)
-      return true if voting.has_attribute?(:up_vote) && voting.up_vote
+      return true if voting.has_attribute?(:what_vote) && voting.up_vote?
       false
     end
 
@@ -157,7 +205,15 @@ module MakeVoteable
     def down_voted?(voteable)
       check_voteable(voteable)
       voting = fetch_voting(voteable)
-      return true if voting.has_attribute?(:up_vote) && !voting.up_vote
+      return true if voting.has_attribute?(:what_vote) && voting.down_vote?
+      false
+    end
+    
+    # Returns true if the voter abstain voted the +voteable+.
+    def abstain_voted?(voteable)
+      check_voteable(voteable)
+      voting = fetch_voting(voteable)
+      return true if voting.has_attribute?(:what_vote) && voting.abstain_vote?
       false
     end
 

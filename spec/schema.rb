@@ -3,12 +3,14 @@ ActiveRecord::Schema.define :version => 0 do
     t.string :name
     t.integer :up_votes, :null => false, :default => 0
     t.integer :down_votes, :null => false, :default => 0
+    t.integer :abstain_votes, :null => false, :default => 0
   end
 
   create_table :voter_models, :force => true do |t|
     t.string :name
     t.integer :up_votes, :null => false, :default => 0
     t.integer :down_votes, :null => false, :default => 0
+    t.integer :abstain_votes, :null => false, :default => 0
   end
 
   create_table :invalid_voteable_models, :force => true do |t|
@@ -20,7 +22,7 @@ ActiveRecord::Schema.define :version => 0 do
      t.integer :voteable_id
      t.string :voter_type
      t.integer :voter_id
-     t.boolean :up_vote, :null => false
+     t.integer :what_vote, :null => false
 
      t.timestamps
   end

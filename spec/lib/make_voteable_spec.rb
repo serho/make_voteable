@@ -23,6 +23,8 @@ describe "Make Voteable" do
     @voteable.votes.should == -1
     @voter.unvote(@voteable).should == true
     @voteable.votes.should == 0
+    @voter.abstain_vote(@voteable).should == true
+    @voteable.votes.should == 0
   end
 
   it "voteable should have up vote votings" do
@@ -43,14 +45,28 @@ describe "Make Voteable" do
     @voteable.votings.length.should == 0
     @voter.down_vote(@voteable)
     @voteable.votings.reload.length.should == 1
-    @voteable.votings[0].up_vote?.should be_false
+    @voteable.votings[0].down_vote?.should be_true
   end
 
   it "voter should have down vote votings" do
     @voter.votings.length.should == 0
     @voter.down_vote(@voteable)
     @voter.votings.reload.length.should == 1
-    @voter.votings[0].up_vote?.should be_false
+    @voter.votings[0].down_vote?.should be_true
+  end
+  
+  it "voteable should have abstain vote votings" do
+    @voteable.votings.length.should == 0
+    @voter.abstain_vote(@voteable)
+    @voteable.votings.reload.length.should == 1
+    @voteable.votings[0].abstain_vote?.should be_true
+  end
+
+  it "voter should have abstain vote votings" do
+    @voter.votings.length.should == 0
+    @voter.abstain_vote(@voteable)
+    @voter.votings.reload.length.should == 1
+    @voter.votings[0].abstain_vote?.should be_true
   end
 
   describe "up vote" do
@@ -73,7 +89,7 @@ describe "Make Voteable" do
       voting = MakeVoteable::Voting.first
       voting.voteable.should == @voteable
       voting.voter.should == @voter
-      voting.up_vote.should == true
+      voting.up_vote?.should == true
     end
 
     it "should only allow a voter to up vote a voteable once" do
@@ -96,14 +112,14 @@ describe "Make Voteable" do
       @voter.up_votes.should == 0
       @voter.down_votes.should == 1
       MakeVoteable::Voting.count.should == 1
-      MakeVoteable::Voting.first.up_vote.should be_false
+      MakeVoteable::Voting.first.up_vote?.should be_false
       @voter.up_vote(@voteable)
       @voteable.up_votes.should == 1
       @voteable.down_votes.should == 0
       @voter.up_votes.should == 1
       @voter.down_votes.should == 0
       MakeVoteable::Voting.count.should == 1
-      MakeVoteable::Voting.first.up_vote.should be_true
+      MakeVoteable::Voting.first.up_vote?.should be_true
     end
 
     it "should allow up votes from different voters" do
@@ -147,7 +163,7 @@ describe "Make Voteable" do
       voting = MakeVoteable::Voting.first
       voting.voteable.should == @voteable
       voting.voter.should == @voter
-      voting.up_vote.should == false
+      voting.down_vote?.should == true
     end
 
     it "should only allow a voter to down vote a voteable once" do
@@ -170,14 +186,14 @@ describe "Make Voteable" do
       @voter.up_votes.should == 1
       @voter.down_votes.should == 0
       MakeVoteable::Voting.count.should == 1
-      MakeVoteable::Voting.first.up_vote.should be_true
+      MakeVoteable::Voting.first.down_vote?.should be_false
       @voter.down_vote(@voteable)
       @voteable.up_votes.should == 0
       @voteable.down_votes.should == 1
       @voter.up_votes.should == 0
       @voter.down_votes.should == 1
       MakeVoteable::Voting.count.should == 1
-      MakeVoteable::Voting.first.up_vote.should be_false
+      MakeVoteable::Voting.first.down_vote?.should be_true
     end
 
     it "should allow down votes from different voters" do
@@ -201,6 +217,101 @@ describe "Make Voteable" do
     end
   end
 
+  describe "vote abstain" do
+    
+    
+    it "should increase up votes of voteable by one" do
+      @voteable.abstain_votes.should == 0
+      @voter.abstain_vote(@voteable)
+      @voteable.abstain_votes.should == 1
+    end
+
+    it "should increase up votes of voter by one" do
+      @voter.abstain_votes.should == 0
+      @voter.abstain_vote(@voteable)
+      @voter.abstain_votes.should == 1
+    end
+
+    it "should create a voting" do
+      MakeVoteable::Voting.count.should == 0
+      @voter.abstain_vote(@voteable)
+      MakeVoteable::Voting.count.should == 1
+      voting = MakeVoteable::Voting.first
+      voting.voteable.should == @voteable
+      voting.voter.should == @voter
+      voting.abstain_vote?.should == true
+    end
+
+    it "should only allow a voter to abstain vote a voteable once" do
+      @voter.abstain_vote(@voteable)
+      lambda { @voter.abstain_vote(@voteable) }.should raise_error(MakeVoteable::Exceptions::AlreadyVotedError)
+    end
+
+    it "should only allow a voter to up vote a voteable once without raising an error" do
+      @voter.abstain_vote!(@voteable)
+      lambda {
+        @voter.abstain_vote!(@voteable).should == false
+      }.should_not raise_error(MakeVoteable::Exceptions::AlreadyVotedError)
+      MakeVoteable::Voting.count.should == 1
+    end
+
+    it "should change a abstain vote to an up vote" do
+      @voter.abstain_vote(@voteable)
+      @voteable.up_votes.should == 0
+      @voteable.abstain_votes.should == 1
+      @voter.up_votes.should == 0
+      @voter.abstain_votes.should == 1
+      MakeVoteable::Voting.count.should == 1
+      MakeVoteable::Voting.first.up_vote?.should be_false
+      @voter.up_vote(@voteable)
+      @voteable.up_votes.should == 1
+      @voteable.abstain_votes.should == 0
+      @voter.up_votes.should == 1
+      @voter.abstain_votes.should == 0
+      MakeVoteable::Voting.count.should == 1
+      MakeVoteable::Voting.first.up_vote?.should be_true
+    end
+    
+    it "should change a abstain vote to an down vote" do
+      @voter.abstain_vote(@voteable)
+      @voteable.down_votes.should == 0
+      @voteable.abstain_votes.should == 1
+      @voter.down_votes.should == 0
+      @voter.abstain_votes.should == 1
+      MakeVoteable::Voting.count.should == 1
+      MakeVoteable::Voting.first.down_vote?.should be_false
+      @voter.down_vote(@voteable)
+      @voteable.down_votes.should == 1
+      @voteable.abstain_votes.should == 0
+      @voter.down_votes.should == 1
+      @voter.abstain_votes.should == 0
+      MakeVoteable::Voting.count.should == 1
+      MakeVoteable::Voting.first.down_vote?.should be_true
+    end
+
+    it "should allow abstain votes from different voters" do
+      @voter2 = VoterModel.create(:name => "Voter 2")
+      @voter.abstain_vote(@voteable)
+      @voter2.abstain_vote(@voteable)
+      @voteable.abstain_votes.should == 2
+      MakeVoteable::Voting.count.should == 2
+    end
+
+    it "should raise an error for an invalid voteable" do
+      invalid_voteable = InvalidVoteableModel.create
+      lambda { @voter.abstain_vote(invalid_voteable) }.should raise_error(MakeVoteable::Exceptions::InvalidVoteableError)
+    end
+
+    it "should check if voter abstain voted voteable" do
+      @voter.abstain_vote(@voteable)
+      @voter.voted?(@voteable).should be_true
+      @voter.abstain_voted?(@voteable).should be_true
+      @voter.down_voted?(@voteable).should be_false
+      @voter.up_voted?(@voteable).should be_false
+    end
+    
+  end
+  
   describe "unvote" do
     it "should decrease the up votes if up voted before" do
       @voter.up_vote(@voteable)
@@ -209,6 +320,15 @@ describe "Make Voteable" do
       @voter.unvote(@voteable)
       @voteable.up_votes.should == 0
       @voter.up_votes.should == 0
+    end
+    
+    it "should decrease the abstain votes if abstain voted before" do
+      @voter.abstain_vote(@voteable)
+      @voteable.abstain_votes.should == 1
+      @voter.abstain_votes.should == 1
+      @voter.unvote(@voteable)
+      @voteable.abstain_votes.should == 0
+      @voter.abstain_votes.should == 0
     end
 
     it "should remove the voting" do

@@ -5,7 +5,7 @@ class CreateMakeVoteableTables < ActiveRecord::Migration
        t.integer :voteable_id
        t.string :voter_type
        t.integer :voter_id
-       t.boolean :up_vote, :null => false
+       t.integer :what_vote, :null => false
 
        t.timestamps
     end
